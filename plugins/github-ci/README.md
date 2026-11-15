@@ -12,7 +12,7 @@ Buzz's own GitHub panel when that plugin can show it, else in your browser.
 The GitHub button in the channel header shows how many pull requests are
 failing, once you have opened the tab in this session.
 
-Mockups: [`docs/github-ci/`](../../docs/github-ci/).
+Mockups: [below](#mockups).
 
 ## Install
 
@@ -93,6 +93,17 @@ ignore the rest. Without the relay's key the tab shows an error instead of a
 link. **Unlink**
 publishes the same event with empty content. The event holds only the repo
 and branch.
+
+## Mockups
+
+Design sheets, in [`mockups/`](mockups/).
+
+![Linking a channel to a repo](mockups/sheet1-link.png)
+![Pull requests and their checks](mockups/sheet2-prs.png)
+![Merges and their workflow runs](mockups/sheet3-runs.png)
+![Empty, sign-in and error states](mockups/sheet4-states.png)
+![Token settings in Settings → GitHub CI](mockups/sheet5-token.png)
+![Footer naming the credential that did the read](mockups/sheet5b-footer.png)
 
 ## Files
 
