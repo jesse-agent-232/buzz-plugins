@@ -77,6 +77,7 @@ file not listed. Every allow:
 | `process-exec` | Only `/bin/sh` (and the `/bin/bash` or `/bin/dash` it hands off to), `/usr/bin/base64`, and whisper-cli at `/opt/homebrew/bin` or `/usr/local/bin` and in their `Cellar/whisper.cpp` (or the formula's old name, `Cellar/whisper-cpp`) | The three programs in the pipe |
 | `sysctl-read` | Reading kernel settings such as the CPU count | whisper picks its thread count from it |
 | `file-read-metadata` | `stat` on any path: whether it exists, size and dates. Not its contents, and not a directory's listing | Loading libraries walks paths; listing every parent folder would be brittle |
+| `file-read-data` on `/` | The listing of `/` only, not anything below it | `sh` and dyld read it at start; without it `sh` aborts |
 | `file-read*` on `/System/Library`, `/System/Cryptexes`, `/System/Volumes/Preboot/Cryptexes`, `/usr/lib`, `/usr/share`, `/bin`, `/usr/bin`, `/private/var/select` | macOS's own libraries, programs and shared data | Every program needs the system libraries; `/private/var/select` says which shell `/bin/sh` is |
 | `file-read*` on `/opt/homebrew`, `/usr/local` | Homebrew's programs and libraries | whisper-cli and the ggml libraries it loads |
 | `file-read*` on `/dev/null`, `/dev/urandom` | Those two devices | Standard library start-up |
