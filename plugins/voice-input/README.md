@@ -57,15 +57,28 @@ commands, no file access. That process is macOS `sandbox-exec` with a fixed
 profile, running a fixed `/bin/sh` line. The plugin passes it no arguments, so
 what you review at install is all it runs.
 
-Inside the sandbox, whisper-cli:
+The profile starts from `(deny default)`: everything is refused unless a rule
+below allows it. That covers network, IPC with system services (Mach
+lookups, so no clipboard and no asking a daemon to fetch something), and every
+file not listed. Every allow:
 
-- **has no network**, in or out, and opens no port;
-- **can run only** `sh`, `base64` and programs under `/opt/homebrew` or
-  `/usr/local` (where Homebrew puts whisper-cli);
-- **reads nothing under `/Users` or `/Volumes`** except
-  `~/.local/share/whisper/ggml-base.en.bin` or `ggml-small.en.bin`;
-- **writes nothing** except `/dev/null` and the system's per-user temp and
-  cache folder (`/private/var/folders`), which Metal uses for its GPU caches.
+| Rule | What it lets through | Why |
+|---|---|---|
+| `process-fork` | Starting a child process | `sh` runs `base64` and whisper-cli as a pipe |
+| `process-exec` | Only `/bin/sh` (and the `/bin/bash` or `/bin/dash` it hands off to), `/usr/bin/base64`, and whisper-cli at `/opt/homebrew/bin` or `/usr/local/bin` and in their `Cellar/whisper-cpp` | The three programs in the pipe |
+| `sysctl-read` | Reading kernel settings such as the CPU count | whisper picks its thread count from it |
+| `file-read-metadata` | `stat` on any path: whether it exists, size and dates. Not its contents, and not a directory's listing | Loading libraries walks paths; listing every parent folder would be brittle |
+| `file-read*` on `/System/Library`, `/System/Cryptexes`, `/System/Volumes/Preboot/Cryptexes`, `/usr/lib`, `/usr/share`, `/bin`, `/usr/bin`, `/private/var/select` | macOS's own libraries, programs and shared data | Every program needs the system libraries; `/private/var/select` says which shell `/bin/sh` is |
+| `file-read*` on `/opt/homebrew`, `/usr/local` | Homebrew's programs and libraries | whisper-cli and the ggml libraries it loads |
+| `file-read*` on `/dev/null`, `/dev/urandom` | Those two devices | Standard library start-up |
+| `file-read*` on `~/.local/share/whisper/ggml-base.en.bin` or `ggml-small.en.bin` | The model, and nothing else under `/Users` | The model |
+| `file-write-data` on `/dev/null` | Writes to `/dev/null` only | Discarded output |
+
+Nothing else is allowed, so whisper-cli has no network, cannot read your files
+or other apps' caches, and writes no files. It runs on the CPU (`-ng`). With
+the GPU, Metal would need its own system services and a writable cache
+folder, and the profile would have to open both. `base.en` on Apple silicon
+transcribes a five-minute clip in seconds without the GPU.
 
 The recording reaches it on stdin as base64 (plugin processes take text), and
 `base64 -D` decodes it inside the sandbox. The text comes back on stdout.

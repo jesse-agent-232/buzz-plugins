@@ -14,10 +14,10 @@
         "program": "sandbox-exec",
         "args": [
           "-p",
-          "(version 1)\n(allow default)\n(deny network*)\n(deny process-exec)\n(allow process-exec (literal \"/bin/sh\") (literal \"/bin/bash\") (literal \"/bin/dash\") (literal \"/usr/bin/base64\") (subpath \"/opt/homebrew\") (subpath \"/usr/local\"))\n(deny file-read* (subpath \"/Users\") (subpath \"/Volumes\"))\n(allow file-read* (regex #\"^/Users/[^/]+/\\.local/share/whisper/ggml-(base|small)\\.en\\.bin$\"))\n(deny file-write*)\n(allow file-write* (literal \"/dev/null\") (subpath \"/private/var/folders\"))\n",
+          "(version 1)\n(deny default)\n(allow process-fork)\n(allow process-exec (literal \"/bin/sh\") (literal \"/bin/bash\") (literal \"/bin/dash\") (literal \"/usr/bin/base64\") (literal \"/opt/homebrew/bin/whisper-cli\") (subpath \"/opt/homebrew/Cellar/whisper-cpp\") (literal \"/usr/local/bin/whisper-cli\") (subpath \"/usr/local/Cellar/whisper-cpp\"))\n(allow sysctl-read)\n(allow file-read-metadata)\n(allow file-read* (subpath \"/System/Library\") (subpath \"/System/Volumes/Preboot/Cryptexes\") (subpath \"/System/Cryptexes\") (subpath \"/usr/lib\") (subpath \"/usr/share\") (subpath \"/bin\") (subpath \"/usr/bin\") (subpath \"/private/var/select\") (subpath \"/opt/homebrew\") (subpath \"/usr/local\") (literal \"/dev/null\") (literal \"/dev/urandom\") (regex #\"^/Users/[^/]+/\\.local/share/whisper/ggml-(base|small)\\.en\\.bin$\"))\n(allow file-write-data (literal \"/dev/null\"))\n",
           "/bin/sh",
           "-c",
-          "m=\"$HOME/.local/share/whisper/ggml-base.en.bin\"; [ -f \"$m\" ] || m=\"$HOME/.local/share/whisper/ggml-small.en.bin\"; [ -f \"$m\" ] || exit 3; w=/opt/homebrew/bin/whisper-cli; [ -x \"$w\" ] || w=/usr/local/bin/whisper-cli; [ -x \"$w\" ] || exit 4; /usr/bin/base64 -D | \"$w\" -m \"$m\" -l en -nt -np -"
+          "m=\"$HOME/.local/share/whisper/ggml-base.en.bin\"; [ -f \"$m\" ] || m=\"$HOME/.local/share/whisper/ggml-small.en.bin\"; [ -f \"$m\" ] || exit 3; w=/opt/homebrew/bin/whisper-cli; [ -x \"$w\" ] || w=/usr/local/bin/whisper-cli; [ -x \"$w\" ] || exit 4; /usr/bin/base64 -D | \"$w\" -m \"$m\" -l en -ng -nt -np -"
         ]
       }
     ]

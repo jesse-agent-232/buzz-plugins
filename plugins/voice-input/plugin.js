@@ -3,8 +3,9 @@
 // text on this Mac and the text goes in at the caret. Nothing is sent.
 //
 // whisper-cli runs from the manifest's one `processes` entry, under macOS
-// `sandbox-exec`: no network, no other programs, and no reads under /Users
-// except the model file (README.md, "What it can reach"). Process stdin is
+// `sandbox-exec` from `(deny default)`: its own programs, the system and
+// Homebrew libraries, and the model, with no network, no system services and
+// no other files (README.md, "What it can reach"). Process stdin is
 // text, so the recording goes in as base64 and `base64 -D` decodes it inside
 // the sandbox.
 
