@@ -15,7 +15,11 @@ your own before installing from a folder, or install from a server that
 serves the plugin with its origin stamped in.
 
 `plugins/github-ci/`, `plugins/voice-input/` and `plugins/pinned-threads/` have
-no placeholder origins, so they also install from a link: see the Install
-section of [github-ci](plugins/github-ci/README.md#install),
-[voice-input](plugins/voice-input/README.md#install) or
-[pinned-threads](plugins/pinned-threads/README.md#install).
+no placeholder origins, so they also install in one click:
+
+- [Install github-ci in Buzz](https://man15h.github.io/buzz-plugins/install.html?path=plugins/github-ci)
+- [Install voice-input in Buzz](https://man15h.github.io/buzz-plugins/install.html?path=plugins/voice-input)
+- [Install pinned-threads in Buzz](https://man15h.github.io/buzz-plugins/install.html?path=plugins/pinned-threads)
+
+Each plugin's Install section has the paste command too, for when the link
+doesn't open Buzz.

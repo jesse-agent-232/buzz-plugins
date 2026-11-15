@@ -38,8 +38,10 @@ Pins are the same either way, so they stay put when Buzz gains the row.
 
 ## Install
 
-Open the install link. Buzz opens **Settings → Plugins → Add** with this
-folder picked from Git:
+**[Install in Buzz](https://man15h.github.io/buzz-plugins/install.html?path=plugins/pinned-threads)**. Buzz opens **Settings → Plugins → Add**
+with this folder picked from Git.
+
+If the link doesn't open Buzz, run the install link yourself:
 
 ```sh
 open 'buzz://plugin-install?repository=man15h%2Fbuzz-plugins&path=plugins%2Fpinned-threads'
