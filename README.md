@@ -13,5 +13,7 @@ Where a plugin's `manifest.json` names placeholder origins (`*.example.com`), pu
 your own before installing from a folder, or install from a server that
 serves the plugin with its origin stamped in.
 
-`plugins/github-ci/` has no placeholder origins, so it also installs from a
-link: see its [Install](plugins/github-ci/README.md#install) section.
+`plugins/github-ci/` and `plugins/voice-input/` have no placeholder origins,
+so they also install from a link: see the Install section of
+[github-ci](plugins/github-ci/README.md#install) or
+[voice-input](plugins/voice-input/README.md#install).

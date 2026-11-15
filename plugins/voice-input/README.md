@@ -46,9 +46,18 @@ the composer says so and shows the command for it.
 
 ## Install
 
-In Buzz: **Settings → Plugins → Manage plugins → Add**, then **Browse** under
-Add from folder, and pick this repository's `plugins/voice-input/` folder.
+Open the install link. Buzz opens **Settings → Plugins → Add** with this
+folder picked from Git:
+
+```sh
+open 'buzz://plugin-install?repository=man15h%2Fbuzz-plugins&path=plugins%2Fvoice-input'
+```
+
 Review the access it asks for (one process, below) and install it.
+
+Or install from a clone: **Settings → Plugins → Manage plugins → Add**, then
+**Browse** under Add from folder, and pick the clone's `plugins/voice-input/`
+folder.
 
 ## What it can reach
 
