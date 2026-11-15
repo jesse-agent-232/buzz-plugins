@@ -3,15 +3,19 @@
 // their own row below the title bar, with the sidebar's unread and
 // agent-working marks. A pinned tab's own menu renames, colours or unpins it.
 //
-// Needs a Buzz with `titleBarRow` on panels and
-// `conversation.registerThreadTabAction` (README.md, "Requirements"). Pins are
-// kept in this Mac's localStorage, per community and account.
+// That needs a Buzz with `titleBarRow` on panels and
+// `conversation.registerThreadTabAction`. Without them, the tabs sit in the
+// title bar right of Search and Pin thread is in a message's menu (README.md,
+// "Requirements"). Pins are kept in this Mac's localStorage, per community
+// and account.
 
 export const inject = ["conversation", "navigation", "panels", "react", "relay"];
 
 const PINS_KEY = "buzz-pinned-threads.pins";
 // Tabs shrink to this width before the rest go behind +N (rem).
 const MIN_TAB_REM = 9;
+// Beside Search, the tabs leave it this much of the half width (rem).
+const SEARCH_ROOM_REM = 16;
 const COLORS = [
   ["red", "Red", "var(--red-9)"],
   ["orange", "Orange", "var(--orange-9)"],
@@ -59,13 +63,16 @@ export function apply(ctx) {
   const find = (scope, rootId) => pins.find((pin) => same(pin, scope, rootId));
   const update = (pin, patch) => save(pins.map((item) => (item === pin ? { ...item, ...patch } : item)));
   const unpin = (pin) => save(pins.filter((item) => item !== pin));
+  const pin = (scope, channelId, rootId, title) =>
+    find(scope, rootId) || save([...pins, { scope, channelId, rootId, title }]);
 
   const relaySnapshot = () => ctx.relay.snapshot();
   const currentScope = () => relaySnapshot()?.scope;
 
   // ---- Pin / Unpin in a thread tab's menu ---------------------------------
 
-  if (typeof ctx.conversation.registerThreadTabAction === "function") {
+  const threadTabs = typeof ctx.conversation.registerThreadTabAction === "function";
+  if (threadTabs) {
     ctx.conversation.registerThreadTabAction({
       id: "pin",
       label: (thread) => (find(currentScope(), thread.rootId) ? "Unpin thread" : "Pin thread"),
@@ -74,9 +81,54 @@ export function apply(ctx) {
         if (!scope) return;
         const pinned = find(scope, thread.rootId);
         if (pinned) unpin(pinned);
-        else save([...pins, { scope, channelId: thread.channelId, rootId: thread.rootId, title: thread.label }]);
+        else pin(scope, thread.channelId, thread.rootId, thread.label);
       },
     });
+  } else {
+    // Older Buzz: Pin / Unpin in a message's menu, for the thread it's in. The
+    // host reads `matches` when the row renders, so each item only does what
+    // its name says, even if a pin changed since.
+    const rootOf = (message) => message.threadRootId || message.id;
+    const messageAction = (id, title, pinned, run) =>
+      ctx.conversation.registerMessageAction({
+        id,
+        title,
+        icon: () => icon(PIN, 16),
+        matches: (message) => !!find(currentScope(), rootOf(message)) === pinned,
+        component: function PinAction({ message, session, close }) {
+          useEffect(() => {
+            const scope = currentScope();
+            if (scope) run(scope, message, session);
+            close();
+          }, []);
+          return null;
+        },
+      });
+    messageAction("pin", "Pin thread", false, (scope, message, session) =>
+      pin(scope, message.channelId, rootOf(message), threadTitle(session, message.channelId, rootOf(message))),
+    );
+    messageAction("unpin", "Unpin thread", true, (scope, message) => {
+      const pinned = find(scope, rootOf(message));
+      if (pinned) unpin(pinned);
+    });
+  }
+
+  // The thread tab's own title: the root's text, else "Thread · channel".
+  function threadTitle(session, channelId, rootId) {
+    try {
+      const root = session.channels.window(channelId).rows.find((row) => row.id === rootId);
+      const text = root?.content
+        .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+        .replace(/[*_`~>#]/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 80);
+      if (text) return text;
+      const name = session.channels.list().channels.find((channel) => channel.id === channelId)?.name;
+      return name ? `Thread · ${name}` : "Thread";
+    } catch {
+      return "Thread";
+    }
   }
 
   // ---- Opening a pinned thread --------------------------------------------
@@ -137,7 +189,8 @@ export function apply(ctx) {
 
   // ---- The row -------------------------------------------------------------
 
-  function PinnedRow() {
+  // `bar` puts the tabs in the title bar beside Search instead of their row.
+  function PinnedRow({ bar }) {
     const all = useSyncExternalStore(subscribe, () => pins);
     const session = useSession();
     const scope = relaySnapshot()?.scope;
@@ -160,9 +213,11 @@ export function apply(ctx) {
 
     if (!shown.length) return null;
     const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-    const fits = Math.max(1, Math.floor(width / (MIN_TAB_REM * rem)));
+    // Each tab after the first also takes the row's gap.
+    const gap = parseFloat(getComputedStyle(row.current ?? document.documentElement).columnGap) || 0;
+    const count = (room) => Math.max(1, Math.floor((room + gap) / (MIN_TAB_REM * rem + gap)));
     // Room for the +N button comes out of the last tab's space.
-    const visible = shown.length <= fits ? shown : shown.slice(0, Math.max(1, Math.floor((width - 4 * rem) / (MIN_TAB_REM * rem))));
+    const visible = shown.length <= count(width) ? shown : shown.slice(0, count(width - 4 * rem - gap));
     const hidden = shown.slice(visible.length);
     const at = (event) => {
       const box = event.currentTarget.getBoundingClientRect();
@@ -173,7 +228,7 @@ export function apply(ctx) {
 
     return h(
       "nav",
-      { ref: row, className: "pt-row", "aria-label": "Pinned threads" },
+      { ref: row, className: "pt-row", "data-bar": bar ? "" : undefined, "aria-label": "Pinned threads" },
       h("style", null, CSS),
       visible.map((pin) =>
         renaming === pin
@@ -400,12 +455,12 @@ export function apply(ctx) {
     id: "pinned-threads",
     title: "Pinned threads",
     matches: () => false,
-    titleBarRow: PinnedRow,
+    ...(threadTabs ? { titleBarRow: PinnedRow } : { toolbar: () => h(PinnedRow, { bar: true }) }),
     component: () => null,
   });
 }
 
-// message-reply, chevron-down, chevron-right, check
+// message-reply, chevron-down, chevron-right, check, pin
 const THREAD = [
   "M18 4a3 3 0 0 1 3 3v8a3 3 0 0 1 -3 3h-5l-5 3v-3h-2a3 3 0 0 1 -3 -3v-8a3 3 0 0 1 3 -3h12z",
   "M11 8l-3 3l3 3",
@@ -414,9 +469,13 @@ const THREAD = [
 const CHEVRON = ["M6 9l6 6l6 -6"];
 const CHEVRON_RIGHT = ["M9 6l6 6l-6 6"];
 const CHECK = ["M5 12l5 5l10 -10"];
+const PIN = ["M15 4.5l-4 4l-4 1.5l-1.5 1.5l7 7l1.5 -1.5l1.5 -4l4 -4", "M9 15l-4.5 4.5", "M14.5 4l5.5 5.5"];
 
 const CSS = `
 .pt-row { display: flex; align-items: center; gap: var(--space-1); min-width: 0; padding-block: var(--space-1); }
+/* The title bar sizes its actions to their content, so the tabs set their own
+   limit there and Search keeps ${SEARCH_ROOM_REM}rem of its half. */
+.pt-row[data-bar] { width: max-content; max-width: max(${MIN_TAB_REM + 4}rem, calc(50vw - ${SEARCH_ROOM_REM}rem)); padding-block: 0; }
 .pt-tab, .pt-more { display: inline-flex; align-items: center; gap: var(--space-2); height: var(--size-control-sm); padding: 0 var(--space-3); border: 0; border-radius: var(--radius-pill); background: transparent; color: var(--text-subtle); font: inherit; font-size: var(--text-body-sm); cursor: pointer; }
 .pt-tab { flex: 0 1 14rem; min-width: ${MIN_TAB_REM}rem; }
 .pt-more { flex: none; gap: var(--space-1); }
