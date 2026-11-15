@@ -662,8 +662,33 @@ export function apply(ctx) {
       action,
     );
   }
-  const button = (label, onClick, primary) =>
-    h("button", { type: "button", className: primary ? "gci-button gci-primary" : "gci-button", onClick }, label);
+  // Buzz's own controls, so they follow the app theme.
+  function Button({ variant = "subtle", size = "sm", disabled, children, ...props }) {
+    return h(
+      "button",
+      {
+        type: "button",
+        "data-buzz-ui": "",
+        className: "buzz-button",
+        "data-variant": variant,
+        "data-size": size,
+        "data-button-shape": "capsule",
+        disabled,
+        "data-disabled": disabled ? "" : undefined,
+        ...props,
+      },
+      h("span", { className: "buzz-button-label" }, children),
+    );
+  }
+  const button = (label, onClick, primary) => h(Button, { variant: primary ? "prominent" : "subtle", onClick }, label);
+
+  function Field({ label, children }) {
+    return h("label", { "data-buzz-ui": "", className: "buzz-field" }, h("span", { className: "buzz-field-label" }, label), children);
+  }
+
+  function Input(props) {
+    return h("input", { "data-buzz-ui": "", className: "buzz-input", "data-size": "md", autoComplete: "off", spellCheck: false, ...props });
+  }
 
   // Reads CI for a link: on open, on Refresh and every two minutes. A failed
   // refresh keeps the last read on screen, dimmed.
@@ -783,23 +808,31 @@ export function apply(ctx) {
       setStatus({ busy: true });
       onSave({ repo: found.repo, branch: branch.trim() }).catch(() => setStatus({ error: "Couldn’t save the link. Try again." }));
     };
+    // A native modal sits in the top layer, so it centres over the app and
+    // traps focus. The buzz-dialog classes give it the app's look.
     return h(
       "dialog",
-      { ref, className: "gci-dialog", onClose, "aria-labelledby": "gci-dialog-title" },
+      { ref, "data-buzz-ui": "", className: "buzz-dialog gci-dialog", "data-size": "compact", "data-height": "content", onClose, "aria-labelledby": "gci-dialog-title" },
       h(
         "form",
         { onSubmit: found ? save : lookup, className: "gci-form" },
-        h("h2", { id: "gci-dialog-title", className: "gci-title" }, `Link a GitHub repo to #${channel.name}`),
-        h("p", { className: "gci-meta" }, "The CI tab shows its open pull requests and the runs each merge starts."),
         h(
-          "label",
-          { className: "gci-field" },
-          "Repository",
-          h("input", {
+          "header",
+          { className: "buzz-dialog-header" },
+          h(
+            "div",
+            { className: "buzz-dialog-heading" },
+            h("h2", { id: "gci-dialog-title", className: "text-label" }, `Link a GitHub repo to #${channel.name}`),
+            h("p", { className: "buzz-dialog-description" }, "The CI tab shows its open pull requests and the runs each merge starts."),
+          ),
+        ),
+        h(
+          Field,
+          { label: "Repository" },
+          h(Input, {
             value: repo,
             placeholder: "owner/name",
             autoFocus: true,
-            spellCheck: false,
             onChange: (event) => {
               setRepo(event.target.value);
               setFound(undefined);
@@ -809,22 +842,22 @@ export function apply(ctx) {
         ),
         found &&
           h(
-            "label",
-            { className: "gci-field" },
-            "Branch for post-merge runs",
-            h("input", { value: branch, spellCheck: false, onChange: (event) => setBranch(event.target.value) }),
+            Field,
+            { label: "Branch for post-merge runs" },
+            h(Input, { value: branch, onChange: (event) => setBranch(event.target.value) }),
           ),
         status.busy && h("p", { className: "gci-meta", role: "status" }, found ? "Saving…" : "Looking it up…"),
         status.error && h("p", { className: "gci-error", role: "alert" }, status.error),
         h(
           "div",
-          { className: "gci-actions" },
-          current && h("button", { type: "button", className: "gci-button gci-danger", onClick: () => {
+          { className: "buzz-dialog-actions" },
+          current &&
+            h(Button, { variant: "destructive", className: "buzz-button buzz-dialog-leading-actions", onClick: () => {
                 setStatus({ busy: true });
                 onUnlink().catch(() => setStatus({ error: "Couldn’t remove the link. Try again." }));
               } }, "Unlink"),
-          h("button", { type: "button", className: "gci-button", onClick: () => ref.current?.close() }, "Cancel"),
-          h("button", { type: "submit", className: "gci-button gci-primary", disabled: status.busy }, found ? "Link repository" : "Look up"),
+          h(Button, { variant: "ghost", onClick: () => ref.current?.close() }, "Cancel"),
+          h(Button, { type: "submit", variant: "prominent", disabled: status.busy }, found ? "Link repository" : "Look up"),
         ),
       ),
     );
@@ -993,21 +1026,19 @@ export function apply(ctx) {
             { className: "gci-actions gci-start" },
             h("code", { className: "gci-masked" }, `${token.startsWith("github_pat_") ? "github_pat_" : token.slice(0, 4)}••••••••`),
             button("Replace", () => setEditing(true)),
-            h("button", { type: "button", className: "gci-button gci-danger", onClick: () => writeToken("") }, "Remove"),
+            h(Button, { variant: "destructive", onClick: () => writeToken("") }, "Remove"),
           )
         : h(
             "form",
             { className: "gci-actions gci-start", onSubmit: save },
-            h("input", {
+            h(Input, {
               type: "password",
               value: draft,
               placeholder: "github_pat_…",
-              autoComplete: "off",
-              spellCheck: false,
               "aria-label": "GitHub token",
               onChange: (event) => setDraft(event.target.value),
             }),
-            h("button", { type: "submit", className: "gci-button gci-primary" }, "Save"),
+            h(Button, { type: "submit", variant: "prominent" }, "Save"),
             editing && button("Cancel", () => setEditing(false)),
           ),
       h(
@@ -1110,16 +1141,11 @@ a.gci-name:hover, .gci-more:hover { text-decoration: underline; }
 .gci-empty { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); padding-block: var(--space-4); }
 .gci-title { margin: 0; font-size: inherit; font-weight: 600; }
 .gci-error { margin: 0; color: var(--text-danger); }
-.gci-button { padding: var(--space-1) var(--space-3); border: 1px solid var(--border-standard); border-radius: var(--radius-row); background: transparent; color: var(--text-primary); cursor: pointer; }
-.gci-primary { background: var(--text-primary); color: var(--surface-base, #000); border-color: transparent; }
-.gci-danger { color: var(--text-danger); }
 .gci-icon { display: inline-flex; padding: var(--space-1); border: 0; border-radius: var(--radius-row); background: transparent; color: var(--text-secondary); cursor: pointer; }
 .gci-icon:hover { background: var(--interaction-row-hover); }
-.gci-dialog { width: min(28rem, calc(100vw - 2 * var(--space-6))); padding: var(--space-5); border: 1px solid var(--border-standard); border-radius: var(--radius-lg); background: var(--surface-base, Canvas); color: var(--text-primary); }
-.gci-form { display: flex; flex-direction: column; gap: var(--space-3); }
-.gci-field { display: flex; flex-direction: column; gap: var(--space-1); color: var(--text-secondary); }
-.gci input { padding: var(--space-1) var(--space-2); border: 1px solid var(--border-standard); border-radius: var(--radius-row); background: var(--surface-inset); color: var(--text-primary); font: inherit; }
-.gci-dialog input { padding: var(--space-1) var(--space-2); border: 1px solid var(--border-standard); border-radius: var(--radius-row); background: var(--surface-inset); color: var(--text-primary); font: inherit; }
+.gci-dialog:not([open]) { display: none; }
+.gci-dialog::backdrop { background: var(--bg-scrim, rgb(0 0 0 / 0.4)); }
+.gci-form { display: flex; flex-direction: column; gap: var(--space-4); }
 .gci-actions { display: flex; justify-content: flex-end; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
 .gci-start { justify-content: flex-start; }
 .gci-settings input { flex: 1 1 16rem; }
