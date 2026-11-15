@@ -205,11 +205,22 @@ export function apply(ctx) {
     useLayoutEffect(() => {
       const element = row.current;
       if (!element) return;
+      // In the title bar the nav is as wide as its tabs, so count against the
+      // room the bar allows it (the CSS max-width), not its own width.
+      if (bar) {
+        const measure = () => {
+          const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+          setWidth(Math.max((MIN_TAB_REM + 4) * rem, window.innerWidth / 2 - SEARCH_ROOM_REM * rem));
+        };
+        window.addEventListener("resize", measure);
+        measure();
+        return () => window.removeEventListener("resize", measure);
+      }
       const observer = new ResizeObserver(() => setWidth(element.clientWidth));
       observer.observe(element);
       setWidth(element.clientWidth);
       return () => observer.disconnect();
-    }, [shown.length > 0]);
+    }, [bar, shown.length > 0]);
 
     if (!shown.length) return null;
     const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
