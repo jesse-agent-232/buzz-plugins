@@ -1,0 +1,25 @@
+{
+  "id": "voice-input",
+  "name": "Voice Input",
+  "apiVersion": 1,
+  "description": "Dictate into the composer. whisper.cpp turns your speech into text on this Mac, with no network.",
+  "discovery": {
+    "category": "communication",
+    "tags": ["dictation", "speech to text", "local"]
+  },
+  "host": {
+    "processes": [
+      {
+        "id": "whisper",
+        "program": "sandbox-exec",
+        "args": [
+          "-p",
+          "(version 1)\n(allow default)\n(deny network*)\n(deny process-exec)\n(allow process-exec (literal \"/bin/sh\") (literal \"/bin/bash\") (literal \"/bin/dash\") (literal \"/usr/bin/base64\") (subpath \"/opt/homebrew\") (subpath \"/usr/local\"))\n(deny file-read* (subpath \"/Users\") (subpath \"/Volumes\"))\n(allow file-read* (regex #\"^/Users/[^/]+/\\.local/share/whisper/ggml-(base|small)\\.en\\.bin$\"))\n(deny file-write*)\n(allow file-write* (literal \"/dev/null\") (subpath \"/private/var/folders\"))\n",
+          "/bin/sh",
+          "-c",
+          "m=\"$HOME/.local/share/whisper/ggml-base.en.bin\"; [ -f \"$m\" ] || m=\"$HOME/.local/share/whisper/ggml-small.en.bin\"; [ -f \"$m\" ] || exit 3; w=/opt/homebrew/bin/whisper-cli; [ -x \"$w\" ] || w=/usr/local/bin/whisper-cli; [ -x \"$w\" ] || exit 4; /usr/bin/base64 -D | \"$w\" -m \"$m\" -l en -nt -np -"
+        ]
+      }
+    ]
+  }
+}
