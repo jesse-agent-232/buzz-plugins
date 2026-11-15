@@ -113,8 +113,8 @@ export function apply(ctx) {
       ...paths.map((d) => h("path", { key: d, d })),
     );
   }
-  // Tabler text-caption.
-  const DICTATE = ["M4 15h16", "M4 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4", "M4 20h12"];
+  // Tabler microphone.
+  const DICTATE = ["M9 5a3 3 0 0 1 3 -3a3 3 0 0 1 3 3v5a3 3 0 0 1 -3 3a3 3 0 0 1 -3 -3l0 -5", "M5 10a7 7 0 0 0 14 0", "M8 21l8 0", "M12 17l0 4"];
   const X = ["M18 6l-12 12", "M6 6l12 12"];
 
   // Buzz's icon button markup, so the app's styles apply.
