@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Install in Buzz</title>
+<style>
+  body { font: 16px/1.5 system-ui, -apple-system, sans-serif; max-width: 36rem; margin: 4rem auto; padding: 0 1rem; color: #1f2328; }
+  h1 { font-size: 1.5rem; margin-bottom: .5rem; }
+  code, pre { font: 14px ui-monospace, SFMono-Regular, Menlo, monospace; }
+  pre { background: #f6f8fa; padding: .75rem 1rem; border-radius: 6px; overflow-x: auto; }
+  .error { color: #cf222e; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #0d1117; color: #e6edf3; }
+    pre { background: #161b22; }
+    a { color: #4493f8; }
+    .error { color: #ff7b72; }
+  }
+</style>
+</head>
+<body>
+<main id="main">
+  <h1>Install in Buzz</h1>
+  <noscript><p class="error">This page needs JavaScript to build the install link.</p></noscript>
+</main>
+<script>
+  // Only plugin folders of this repository, so the page can't forward
+  // arbitrary buzz:// actions.
+  const REPOSITORY = "man15h/buzz-plugins";
+  const main = document.getElementById("main");
+  const path = new URLSearchParams(location.search).get("path") || "";
+
+  function add(tag, text, attrs) {
+    const el = document.createElement(tag);
+    if (text) el.textContent = text;
+    Object.assign(el, attrs);
+    main.appendChild(el);
+    return el;
+  }
+
+  if (!/^plugins\/[a-z0-9-]+$/.test(path)) {
+    add("p", "This link doesn't name a plugin folder. Go back to the plugin's README and use its Install link.", { className: "error" });
+  } else {
+    const link = "buzz://plugin-install?repository=" + encodeURIComponent(REPOSITORY) + "&path=" + encodeURIComponent(path);
+    add("p", "Opening Buzz to install " + path.slice("plugins/".length) + "…");
+    const p = add("p", "Nothing happened? ");
+    p.appendChild(Object.assign(document.createElement("a"), { href: link, textContent: "Open the install link" }));
+    p.appendChild(document.createTextNode(", or paste this in a terminal:"));
+    add("pre").appendChild(Object.assign(document.createElement("code"), { textContent: "open '" + link + "'" }));
+    add("p", "Buzz has to be installed for the link to open.");
+    location.href = link;
+  }
+</script>
+</body>
+</html>

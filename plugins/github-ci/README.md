@@ -16,8 +16,9 @@ Mockups: [below](#mockups).
 
 ## Install
 
-1. Open the install link. Buzz opens **Settings → Plugins → Add** with this
-   folder picked from Git:
+1. **[Install in Buzz](https://man15h.github.io/buzz-plugins/install.html?path=plugins/github-ci)**. Buzz opens **Settings → Plugins →
+   Add** with this folder picked from Git. If the link doesn't open Buzz, run
+   the install link yourself:
 
    ```sh
    open 'buzz://plugin-install?repository=man15h%2Fbuzz-plugins&path=plugins%2Fgithub-ci'
