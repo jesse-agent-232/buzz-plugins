@@ -229,7 +229,7 @@ export function apply(ctx) {
   async function transcribe(wav, running) {
     let stdout = "";
     let stderr = "";
-    const child = ctx.host.spawn("whisper", {
+    const child = await ctx.host.spawn("whisper", {
       cwd: "/tmp",
       onStdout: (data) => (stdout += data),
       onStderr: (data) => (stderr = (stderr + data).slice(-2000)),
