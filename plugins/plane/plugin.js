@@ -49,6 +49,7 @@ export function apply(ctx) {
     me: undefined,
     mine: [],
     mineError: "",
+    moved: 0, // counts moves, so the board reloads its list
   };
   const listeners = new Set();
   const set = (patch) => {
@@ -414,7 +415,17 @@ export function apply(ctx) {
   const estimateOf = (issue) => issue.estimate_point?.value ?? "";
 
   function Chip({ glyph, children, title }) {
-    return h("span", { className: "pl-chip", title }, glyph, h("span", null, children));
+    return h("span", { className: "pl-chip", title }, glyph, h("span", { className: "pl-ellipsis" }, children));
+  }
+
+  // A label in its Plane colour. Only a hex colour reaches the style.
+  function LabelChip({ label }) {
+    const color = /^#[0-9a-f]{3,8}$/i.test(label.color ?? "") ? label.color : "var(--text-subtle)";
+    return h(
+      Chip,
+      { glyph: h("span", { className: "pl-dot", style: { background: color } }), title: label.name },
+      label.name,
+    );
   }
 
   function StateChip({ state: s }) {
@@ -526,11 +537,14 @@ export function apply(ctx) {
     const [board, setBoard] = useState();
     const [error, setError] = useState("");
     const [tick, setTick] = useState(0);
+    const [opened, setOpened] = useState(""); // the card shown in the details pane
     const connected = s.connection.status === "connected";
 
     useEffect(() => {
       if (wanted) setProject(wanted);
     }, [wanted]);
+
+    useEffect(() => setOpened(""), [project, s.workspace]);
 
     useEffect(() => {
       if (!connected) return;
@@ -552,7 +566,6 @@ export function apply(ctx) {
       if (!connected || !project || !projects?.some((p) => p.id === project)) return;
       store(PROJECT_KEY, project);
       let live = true;
-      setBoard(undefined);
       Promise.all([statesOf(s.workspace, project, tick > 0), issuesOf(s.workspace, project, tick > 0)])
         .then(([states, issues]) => {
           if (!live) return;
@@ -563,7 +576,8 @@ export function apply(ctx) {
       return () => {
         live = false;
       };
-    }, [connected, s.workspace, project, projects, tick]);
+      // A card moved from a preview or panel drops its project's list, so reload.
+    }, [connected, s.workspace, project, projects, tick, s.moved]);
 
     const current = projects?.find((p) => p.id === project);
     const shown = board?.project === project ? board : undefined;
@@ -633,22 +647,55 @@ export function apply(ctx) {
         shown
           ? h(
               "div",
-              { className: "pl-columns" },
-              columns.map((column) => {
-                const cards = shown.issues.filter((i) => idOf(i.state) === column.id);
-                return h(
-                  "section",
-                  { key: column.id, className: "pl-column", "aria-label": column.name },
+              { className: "pl-board" },
+              h(
+                "div",
+                { className: "pl-columns" },
+                columns.map((column) => {
+                  const cards = shown.issues.filter((i) => idOf(i.state) === column.id);
+                  return h(
+                    "section",
+                    { key: column.id, className: "pl-column", "aria-label": column.name },
+                    h(
+                      "h3",
+                      { className: "pl-columnTitle text-body" },
+                      stateIcon(column),
+                      h("span", { className: "pl-ellipsis" }, column.name),
+                      h("span", { className: "text-subtle" }, cards.length),
+                    ),
+                    h(
+                      "div",
+                      { className: "pl-columnCards" },
+                      cards.length === 0 && h("p", { className: "pl-empty text-body-sm text-subtle" }, "No cards"),
+                      cards.map((issue) => {
+                        const id = cardId(current, issue);
+                        return h(BoardCard, {
+                          key: issue.id,
+                          id,
+                          issue,
+                          selected: id === opened,
+                          onOpen: () => setOpened(id === opened ? "" : id),
+                        });
+                      }),
+                    ),
+                  );
+                }),
+              ),
+              opened &&
+                h(
+                  "aside",
+                  {
+                    className: "pl-drawer",
+                    "aria-label": `${opened} details`,
+                    onKeyDown: (event) => event.key === "Escape" && setOpened(""),
+                  },
                   h(
-                    "h3",
-                    { className: "pl-columnTitle text-body" },
-                    stateIcon(column),
-                    h("span", null, column.name),
-                    h("span", { className: "text-subtle" }, cards.length),
+                    "div",
+                    { className: "pl-drawerBar" },
+                    h(IconButton, { label: "Close details", onClick: () => setOpened("") }, icon("x")),
                   ),
-                  cards.map((issue) => h(BoardCard, { key: issue.id, issue, project: current, slug: s.workspace })),
-                );
-              }),
+                  h(CardDetails, { key: opened, link: parseLink(browseUrl(s.workspace, opened)) }),
+                ),
             )
           : h("p", { className: "text-body-sm text-subtle" }, "Loading the board…"),
       );
@@ -656,23 +703,29 @@ export function apply(ctx) {
     return h("div", { className: "pl-page" }, h("style", null, CSS), header, body);
   }
 
-  function BoardCard({ issue, project, slug }) {
-    const id = cardId(project, issue);
+  // The whole card opens its details: the title button's ::after covers it.
+  function BoardCard({ id, issue, selected, onOpen }) {
     const assignee = (issue.assignees ?? []).find((a) => typeof a === "object");
     const estimate = estimateOf(issue);
+    const labels = (issue.labels ?? []).filter((l) => typeof l === "object");
+    const more = labels.slice(3);
     return h(
       "article",
-      { className: "pl-card" },
+      { className: "pl-card", "data-selected": selected ? "" : undefined },
+      h("span", { className: "pl-id" }, id),
       h(
-        "div",
-        { className: "pl-cardTop" },
-        h("span", { className: "pl-id" }, id),
-        (issue.labels ?? [])
-          .filter((l) => typeof l === "object")
-          .slice(0, 2)
-          .map((label) => h(Chip, { key: label.id, glyph: icon("server", 12) }, label.name)),
+        "button",
+        { type: "button", className: "pl-cardTitle text-body", "aria-expanded": selected, onClick: onOpen },
+        issue.name,
       ),
-      external(browseUrl(slug, id), issue.name, { className: "pl-cardTitle text-body" }),
+      labels.length > 0 &&
+        h(
+          "div",
+          { className: "pl-stack" },
+          labels.slice(0, 3).map((label) => h(LabelChip, { key: label.id, label })),
+          more.length > 0 &&
+            h("span", { className: "pl-chip", title: more.map((l) => l.name).join(", ") }, `+${more.length}`),
+        ),
       h(
         "div",
         { className: "pl-cardFoot" },
@@ -685,6 +738,7 @@ export function apply(ctx) {
   ctx.pages.register({
     id: "board",
     title: "Plane",
+    layout: "workspace",
     primary: true,
     icon: `data:image/svg+xml,${encodeURIComponent(
       `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS["layout-kanban"]
@@ -783,7 +837,10 @@ export function apply(ctx) {
       await api(`${ws(link.slug)}/projects/${projectId}/issues/${issue.id}/`, { method: "PATCH", body: { state: stateId } });
       lists.delete(`${ws(link.slug)}/projects/${projectId}/issues/?${EXPAND}`);
       await loadCard(link);
-      if (link.slug === state.workspace) void loadMine();
+      if (link.slug === state.workspace) {
+        set({ moved: state.moved + 1 });
+        void loadMine();
+      }
     } catch (error) {
       setCard(link.key, { error: error.message });
     } finally {
@@ -901,12 +958,39 @@ export function apply(ctx) {
     );
   }
 
+  // Plane's description as plain text blocks. The HTML is only parsed, never
+  // rendered, so nothing in it runs or loads.
+  const BLOCKS = "p, li, h1, h2, h3, h4, h5, h6, pre, blockquote";
+  function blocksOf(issue) {
+    const html = issue.description_html ?? "";
+    if (!html.trim()) {
+      const text = (issue.description_stripped ?? "").trim();
+      return text ? [{ tag: "p", text }] : [];
+    }
+    const body = new DOMParser().parseFromString(html, "text/html").body;
+    const leaves = [...body.querySelectorAll(BLOCKS)].filter((node) => !node.querySelector(BLOCKS));
+    const blocks = (leaves.length ? leaves : [body]).map((node) => {
+      const tag = node.localName === "pre" ? "pre" : "p";
+      const text = tag === "pre" ? node.textContent : node.textContent.trim();
+      return { tag, text: node.localName === "li" ? `• ${text}` : text };
+    });
+    return blocks.filter((block) => block.text.trim());
+  }
+
   function CardPanel({ target }) {
     const link = parseLink(target);
-    const { card, s } = useCard(link);
+    const { card } = useCard(link);
     const data = card?.data;
     const id = link.id ?? (data ? cardId(data.project, data.issue) : "");
     if (typeof ctx.panels.useTabTitle === "function") ctx.panels.useTabTitle(id || "Plane card");
+    return h(CardDetails, { link });
+  }
+
+  // A card's details, in its side panel and in the board's details pane.
+  function CardDetails({ link }) {
+    const { card, s } = useCard(link);
+    const data = card?.data;
+    const id = link.id ?? (data ? cardId(data.project, data.issue) : "");
     if (s.key !== "saved")
       return h(
         "div",
@@ -928,6 +1012,7 @@ export function apply(ctx) {
     const { issue, project, states } = data;
     const assignees = (issue.assignees ?? []).filter((a) => typeof a === "object");
     const labels = (issue.labels ?? []).filter((l) => typeof l === "object");
+    const description = blocksOf(issue);
     const row = (label, value) =>
       h(
         React.Fragment,
@@ -980,11 +1065,17 @@ export function apply(ctx) {
         row(
           "Labels",
           labels.length
-            ? h("span", { className: "pl-stack" }, labels.map((l) => h(Chip, { key: l.id, glyph: icon("server", 12) }, l.name)))
+            ? h("span", { className: "pl-stack" }, labels.map((l) => h(LabelChip, { key: l.id, label: l })))
             : h("span", { className: "text-subtle" }, "None"),
         ),
         row("Project", project?.name ?? h("span", { className: "text-subtle" }, "Unknown")),
       ),
+      description.length > 0 &&
+        h(
+          "div",
+          { className: "pl-description text-body-sm" },
+          description.map((block, index) => h(block.tag, { key: index }, block.text)),
+        ),
       data.refs.length > 0 && h("h3", { className: "m-0 text-body-sm text-subtle" }, "Refs"),
       h(Refs, { refs: data.refs }),
       external(browseUrl(link.slug, id), [icon("external-link", 16, { key: "i" }), h("span", { key: "t" }, "Open in Plane")], {
@@ -1388,17 +1479,12 @@ const ICONS = {
     "M8 11v-4a4 4 0 1 1 8 0v4",
   ],
   refresh: ["M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4", "M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"],
-  server: [
-    "M3 4m0 3a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v2a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3z",
-    "M3 12m0 3a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v2a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3z",
-    "M7 8l0 .01",
-    "M7 16l0 .01",
-  ],
   "user-circle": [
     "M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0",
     "M12 10m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0",
     "M6.168 18.849a4 4 0 0 1 3.832 -2.849h4a4 4 0 0 1 3.834 2.855",
   ],
+  x: ["M18 6l-12 12", "M6 6l12 12"],
 };
 
 // Host tokens only, so light and dark themes both work. Classes are prefixed "pl-".
@@ -1410,16 +1496,31 @@ const CSS = `
 .pl-picker select { appearance: none; background: transparent; border: 0; color: var(--text); font: inherit; padding-inline-end: var(--space-1); cursor: pointer; }
 .pl-picker select:focus-visible { outline: none; }
 .pl-picker:focus-within { border-color: var(--border-focus); }
-.pl-columns { display: flex; gap: var(--space-3); flex: 1; min-height: 0; overflow-x: auto; padding-bottom: var(--space-2); }
-.pl-column { display: flex; flex-direction: column; gap: var(--space-2); flex: 1 0 15rem; max-width: 22rem; padding: var(--space-2); border-radius: var(--radius-card); background: var(--surface-panel); overflow-y: auto; }
-.pl-columnTitle { display: flex; align-items: center; gap: var(--space-2); margin: 0; padding: var(--space-1) var(--space-1) var(--space-2); font-weight: 600; }
-.pl-card { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--border-standard); border-radius: var(--radius-card-compact, var(--radius-card)); background: var(--surface-elevated); }
-.pl-cardTop, .pl-cardFoot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); min-width: 0; }
-.pl-cardTitle { color: var(--text); text-decoration: none; overflow-wrap: anywhere; }
-.pl-cardTitle:hover { text-decoration: underline; }
-.pl-id { font-family: var(--buzz-mono-family, var(--font-system-mono)); font-size: var(--text-body-sm); color: var(--text-subtle); }
-.pl-chip { display: inline-flex; align-items: center; gap: var(--space-1); min-width: 0; padding: 0 var(--space-2); border-radius: var(--radius-chip); background: var(--surface-hover); color: var(--text); font-size: var(--text-body-sm); line-height: 1.6; white-space: nowrap; }
+.pl-board { display: flex; gap: var(--space-3); flex: 1; min-height: 0; }
+.pl-columns { display: flex; gap: var(--space-3); flex: 1; min-width: 0; min-height: 0; overflow-x: auto; padding-bottom: var(--space-2); }
+.pl-column { display: flex; flex-direction: column; flex: 1 0 16rem; max-width: 22rem; min-height: 0; border-radius: var(--radius-card); background: var(--surface-panel); }
+.pl-columnTitle { display: flex; align-items: center; gap: var(--space-2); margin: 0; padding: var(--space-3) var(--space-3) var(--space-2); font-weight: 600; }
+.pl-columnTitle > svg { flex-shrink: 0; }
+.pl-columnCards { display: flex; flex-direction: column; gap: var(--space-2); flex: 1; min-height: 0; overflow-y: auto; padding: 0 var(--space-2) var(--space-2); }
+.pl-empty { margin: 0; padding: var(--space-2) var(--space-1); }
+.pl-card { position: relative; display: flex; flex-direction: column; gap: var(--space-2); flex-shrink: 0; padding: var(--space-3); border: 1px solid var(--border-standard); border-radius: var(--radius-card-compact, var(--radius-card)); background: var(--surface-elevated); }
+.pl-card:hover { border-color: var(--border-prominent); }
+.pl-card[data-selected] { border-color: var(--border-focus); }
+.pl-card:has(.pl-cardTitle:focus-visible) { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+.pl-cardFoot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); min-width: 0; }
+.pl-cardTitle { padding: 0; border: 0; background: none; color: var(--text); font: inherit; text-align: start; overflow-wrap: anywhere; cursor: pointer; }
+.pl-cardTitle:focus-visible { outline: none; }
+.pl-cardTitle::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+.pl-id { font-family: var(--buzz-mono-family, var(--font-system-mono)); font-size: var(--text-body-sm); color: var(--text-subtle); white-space: nowrap; }
+.pl-chip { display: inline-flex; align-items: center; gap: var(--space-1); min-width: 0; max-width: 100%; padding: 0 var(--space-2); border-radius: var(--radius-chip); background: var(--surface-hover); color: var(--text); font-size: var(--text-body-sm); line-height: 1.6; white-space: nowrap; }
 .pl-chip > svg { flex-shrink: 0; color: var(--text-subtle); }
+.pl-dot { flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; }
+.pl-drawer { display: flex; flex-direction: column; flex: 0 0 26rem; min-height: 0; overflow-y: auto; border: 1px solid var(--border-standard); border-radius: var(--radius-card); background: var(--surface-elevated); }
+.pl-drawerBar { position: sticky; top: 0; display: flex; justify-content: flex-end; padding: var(--space-2) var(--space-2) 0; background: inherit; }
+.pl-drawer .pl-panel { padding: 0 var(--space-4) var(--space-4); }
+.pl-description { display: flex; flex-direction: column; gap: var(--space-2); overflow-wrap: anywhere; }
+.pl-description p, .pl-description pre { margin: 0; }
+.pl-description pre { white-space: pre-wrap; font-family: var(--buzz-mono-family, var(--font-system-mono)); }
 .pl-state { border-radius: var(--radius-pill); }
 .pl-stateButton { border: 0; cursor: pointer; font: inherit; }
 .pl-stateButton:disabled { cursor: progress; }
