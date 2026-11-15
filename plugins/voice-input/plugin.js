@@ -26,7 +26,8 @@ const NO_MODEL = 3;
 const NO_WHISPER = 4;
 const MODEL_URL =
   "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-base.en.bin";
-const MIME_TYPES = ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/mp4", "audio/webm"];
+// mp4 first: Buzz on macOS runs in WebKit, which records and decodes it natively.
+const MIME_TYPES = ["audio/mp4", "audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/webm"];
 
 const ERRORS = {
   denied: { text: "Allow Buzz to access your microphone to dictate." },
@@ -95,6 +96,11 @@ function transcriptText(stdout) {
     .join(" ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+// A "failed" error carrying the step that failed, shown after its text.
+function failure(detail) {
+  return Object.assign(new Error("failed"), { detail });
 }
 
 export function apply(ctx) {
@@ -203,7 +209,12 @@ export function apply(ctx) {
       current.stream.getTracks().forEach((track) => track.stop());
       await stopped;
       const blob = new Blob(current.chunks, { type: recorder.mimeType || "audio/webm" });
-      const decoded = await current.context.decodeAudioData(await blob.arrayBuffer());
+      let decoded;
+      try {
+        decoded = await current.context.decodeAudioData(await blob.arrayBuffer());
+      } catch (cause) {
+        throw failure(`decode: ${cause?.name || "Error"}`);
+      }
       const limit = Math.floor(decoded.sampleRate * MAX_SECONDS);
       const channels = Array.from({ length: decoded.numberOfChannels }, (_, index) => decoded.getChannelData(index).subarray(0, limit));
       release();
@@ -233,7 +244,8 @@ export function apply(ctx) {
       if (code === NO_WHISPER) throw new Error("noWhisper");
       if (code !== 0) {
         console.warn("voice-input: whisper-cli exited", code, stderr);
-        throw new Error("failed");
+        const last = stderr.trim().split("\n").pop().slice(0, 160);
+        throw failure(last ? `whisper-cli exit ${code}: ${last}` : `whisper-cli exit ${code}`);
       }
       const text = transcriptText(stdout);
       if (!text) throw new Error("silent");
@@ -264,6 +276,7 @@ export function apply(ctx) {
   function DictateCapture({ cancel, insertText, focus }) {
     const recorder = useRecorder();
     const [error, setError] = React.useState(null);
+    const [detail, setDetail] = React.useState(null);
     const running = React.useRef(null);
     const finishing = React.useRef(false);
     // False once discarded or closed by the host, so nothing later starts.
@@ -303,14 +316,16 @@ export function apply(ctx) {
       try {
         const wav = await recorder.stop();
         if (!live.current) return;
-        if (!wav) throw new Error("failed");
+        if (!wav) throw failure("recording stopped early");
         const text = await transcribe(wav, running);
         if (!live.current) return;
         cancel();
         insertText(text);
         focus();
       } catch (cause) {
-        if (live.current) setError(ERRORS[cause.message] ? cause.message : "failed");
+        if (!live.current) return;
+        setDetail(cause.detail ?? null);
+        setError(ERRORS[cause.message] ? cause.message : "failed");
       }
     }
     React.useEffect(() => {
@@ -335,6 +350,7 @@ export function apply(ctx) {
           { role: "alert", className: "vi-error" },
           message.text,
           message.code && [" ", h("code", { key: "code", className: "vi-code" }, message.code), message.after],
+          detail && ` (${detail})`,
         ),
         h(
           "button",
