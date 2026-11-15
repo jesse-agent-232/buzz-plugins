@@ -83,6 +83,7 @@ file not listed. Every allow:
 | `file-read*` on `/dev/null`, `/dev/urandom` | Those two devices | Standard library start-up |
 | `file-read*` on `~/.local/share/whisper/ggml-base.en.bin` or `ggml-small.en.bin` | The model, and nothing else under `/Users` | The model |
 | `file-write-data` on `/dev/null` | Writes to `/dev/null` only | Discarded output |
+| `file-write-data` on `/dev/fd/1` | Its own stdout, where the text goes back to Buzz | The transcript |
 
 Nothing else is allowed, so whisper-cli has no network, cannot read your files
 or other apps' caches, and writes no files. It runs on the CPU (`-ng`). With
