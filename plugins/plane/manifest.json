@@ -1,0 +1,18 @@
+{
+  "id": "plane",
+  "name": "Plane",
+  "apiVersion": 1,
+  "description": "Follow and move your Plane cards without leaving Buzz.",
+  "discovery": {
+    "category": "productivity",
+    "tags": ["kanban", "issue tracker", "self-hosted"]
+  },
+  "host": {
+    "networkOrigins": ["https://plane.example.com"],
+    "commands": [
+      { "id": "key-read", "program": "security", "args": ["find-generic-password", "-s", "buzz-plane", "-a", "api-key", "-w"] },
+      { "id": "key-save", "program": "security", "args": ["-i"], "maxInputBytes": 4096 },
+      { "id": "key-clear", "program": "security", "args": ["delete-generic-password", "-s", "buzz-plane", "-a", "api-key"] }
+    ]
+  }
+}
