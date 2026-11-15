@@ -74,7 +74,7 @@ file not listed. Every allow:
 | Rule | What it lets through | Why |
 |---|---|---|
 | `process-fork` | Starting a child process | `sh` runs `base64` and whisper-cli as a pipe |
-| `process-exec` | Only `/bin/sh` (and the `/bin/bash` or `/bin/dash` it hands off to), `/usr/bin/base64`, and whisper-cli at `/opt/homebrew/bin` or `/usr/local/bin` and in their `Cellar/whisper-cpp` | The three programs in the pipe |
+| `process-exec` | Only `/bin/sh` (and the `/bin/bash` or `/bin/dash` it hands off to), `/usr/bin/base64`, and whisper-cli at `/opt/homebrew/bin` or `/usr/local/bin` and in their `Cellar/whisper.cpp` (or the formula's old name, `Cellar/whisper-cpp`) | The three programs in the pipe |
 | `sysctl-read` | Reading kernel settings such as the CPU count | whisper picks its thread count from it |
 | `file-read-metadata` | `stat` on any path: whether it exists, size and dates. Not its contents, and not a directory's listing | Loading libraries walks paths; listing every parent folder would be brittle |
 | `file-read*` on `/System/Library`, `/System/Cryptexes`, `/System/Volumes/Preboot/Cryptexes`, `/usr/lib`, `/usr/share`, `/bin`, `/usr/bin`, `/private/var/select` | macOS's own libraries, programs and shared data | Every program needs the system libraries; `/private/var/select` says which shell `/bin/sh` is |
