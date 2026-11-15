@@ -21,9 +21,20 @@ Only the current community's pins are shown.
 
 ## Requirements
 
-A Buzz with two plugin extension points: `titleBarRow` on panels, for the row,
-and `conversation.registerThreadTabAction`, for Pin thread. On a Buzz without
-them the plugin loads but shows nothing.
+The layout above needs a Buzz with two plugin extension points: `titleBarRow`
+on panels, for the row, and `conversation.registerThreadTabAction`, for Pin
+thread.
+
+On a Buzz without them, the plugin uses places every Buzz has:
+
+- The pinned tabs sit in the title bar, right of Search. They take at most
+  half the window less 16rem, so Search narrows but keeps room, and the rest
+  go under **+N**. Marks, the right-click menu and +N work the same.
+- **Pin thread** is in a message's **…** and right-click menus. It pins the
+  thread the message is in, or the thread it starts. A pinned thread's
+  messages show **Unpin thread** there instead.
+
+Pins are the same either way, so they stay put when Buzz gains the row.
 
 ## Install
 
