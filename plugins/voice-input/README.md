@@ -99,6 +99,13 @@ base64 -i some.wav | sandbox-exec -p "$(jq -r '.host.processes[0].args[1]' manif
 log show --last 2m --predicate 'sender == "Sandbox"' | grep whisper
 ```
 
+## Mockups
+
+Design sheets, in [`mockups/`](mockups/). The dashed ring marks the new button
+and is not part of the design.
+
+![Dictate in light and dark: idle, waiting for the mic, recording, transcribing, text inserted, and the three errors](mockups/dictate-states.png)
+
 ## Limits
 
 - macOS only (`sandbox-exec` and Homebrew).
