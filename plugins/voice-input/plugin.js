@@ -324,8 +324,8 @@ export function apply(ctx) {
         focus();
       } catch (cause) {
         if (!live.current) return;
-        setDetail(cause.detail ?? null);
-        setError(ERRORS[cause.message] ? cause.message : "failed");
+        setDetail(cause?.detail ?? (ERRORS[cause?.message] ? null : String(cause?.message ?? cause).slice(0, 160)));
+        setError(ERRORS[cause?.message] ? cause.message : "failed");
       }
     }
     React.useEffect(() => {
