@@ -26,8 +26,7 @@ const NO_MODEL = 3;
 const NO_WHISPER = 4;
 const MODEL_URL =
   "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-base.en.bin";
-// mp4 first: Buzz on macOS runs in WebKit, which records and decodes it natively.
-const MIME_TYPES = ["audio/mp4", "audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/webm"];
+const MIME_TYPES = ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/mp4", "audio/webm"];
 
 const ERRORS = {
   denied: { text: "Allow Buzz to access your microphone to dictate." },
