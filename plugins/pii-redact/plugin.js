@@ -510,11 +510,12 @@ export function apply(ctx) {
   }
 
   // One entry per composer destination: its latest observation, the spans
-  // found for it, and whether a redaction is running.
+  // found for it, and whether a redaction is running. `dirty` is set by input
+  // the observation hasn't caught up with yet (a paste just before Enter).
   const composers = new Map();
   function composer(key) {
     let entry = composers.get(key);
-    if (!entry) composers.set(key, (entry = { observation: null, found: null, busy: false, hold: null, waiters: new Set(), listeners: new Set() }));
+    if (!entry) composers.set(key, (entry = { observation: null, found: null, busy: false, hold: null, dirty: false, waiters: new Set(), listeners: new Set() }));
     return entry;
   }
   function changed(entry) {
@@ -526,6 +527,8 @@ export function apply(ctx) {
     const key = keyOf(context);
     React.useEffect(() => {
       const entry = composer(key);
+      // Only a new draft clears `dirty`, not a re-run for a new `publish`.
+      if (entry.observation !== observation) entry.dirty = false;
       entry.observation = observation;
       // A picked "Redact as" puts a reserved placeholder in the draft.
       map.commit(observation.text);
@@ -583,8 +586,13 @@ export function apply(ctx) {
   // reads exactly as planned, or a HOLDS key, or null when the engine turned
   // out to be missing (the host Send is back by then).
   async function redactDraft(entry, editor) {
-    // A draft not focused since Buzz started has no observation yet.
-    const observation = entry.observation ?? (await nextObservation(entry, null));
+    // Input the observation hasn't caught up with yet: wait for it, so the
+    // plan (and "nothing to redact") is for the draft as it is now. Input that
+    // left the draft as it was brings no new observation; past SETTLE_MS the
+    // current one stands. A draft not focused since Buzz started has none yet.
+    if (entry.dirty || !entry.observation) await nextObservation(entry, entry.observation);
+    entry.dirty = false;
+    const observation = entry.observation;
     if (!observation || !editor.contains(document.activeElement)) return "edit";
     const { spans, error } = entry.found?.observation === observation && !entry.found.error ? entry.found : await detect(observation.text);
     if (setup) return null;
@@ -652,7 +660,7 @@ export function apply(ctx) {
       const list = target.editor.getAttribute("aria-controls");
       if (list && document.getElementById(list)) return;
       const found = entry.found;
-      if (found && found.observation === entry.observation && !found.error) {
+      if (!entry.dirty && found && found.observation === entry.observation && !found.error) {
         const plan = planRedaction(found.observation, found.spans, map);
         if (!plan.edits.length && !plan.held.length) return;
       }
@@ -668,10 +676,12 @@ export function apply(ctx) {
     }
     function onInput(event) {
       const target = composerOf(event);
-      if (target && composer(target.key).busy && !editing) {
+      if (!target) return;
+      const entry = composer(target.key);
+      if (entry.busy && !editing) {
         event.preventDefault();
         event.stopPropagation();
-      }
+      } else if (!entry.busy) entry.dirty = true;
     }
     document.addEventListener("keydown", onKeyDown, true);
     for (const type of ["beforeinput", "paste", "drop"]) document.addEventListener(type, onInput, true);
